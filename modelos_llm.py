@@ -93,4 +93,10 @@ Pergunta do usuário:
 
 Responda de forma prática, destacando se há divergência.
 """
-    return chatbot_chuveiro_v2(prompt)
+    try:
+        resposta = chatbot_chuveiro_v2(prompt)
+        if not isinstance(resposta, str):
+            raise ValueError("Resposta do agente local não é string.")
+        return resposta.strip()
+    except Exception as e:
+        return f"[Erro no agente local] {e}"
