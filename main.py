@@ -1,4 +1,3 @@
-# Versão modificada do tkinder_gpt_chuveiro_agents_v2.py com simulação duplicada (Chuveiro Real + Digital Twin)
 
 #%%
 
@@ -12,18 +11,7 @@ import queue
 import time
 import modelos_llm
 
-
 #%%
-
-
-import datetime
-
-
-path = r'C:\Users\Jesus Yepez Rojas\Documents\jesus\DIGITAL_TWINS\Tkinter_gpt\tkinder_gpt_chuveiro_agents_v2\logs\\'
-
-log_path = path+"chat_log.txt"
-
-
 plt.rcParams.update({'axes.titlesize': 8, 'xtick.labelsize': 7, 'ytick.labelsize': 7})
 
 modelos_disponiveis = [
@@ -34,12 +22,12 @@ modelos_disponiveis = [
 modelo_atual_index = [0]
 modelo_nome_label = None
 fila_perguntas = queue.Queue()
-
+log_counter = 1
 real_tempos, real_vazoes, real_temperaturas, real_iqb = [], [], [], []
 twin_tempos, twin_vazoes, twin_temperaturas, twin_iqb = [], [], [], []
 rodando = False
-
 #%%
+
 def modchuv(Xs=[0.5, 0.5], Ps=[2, 2], Ts=[20, 60]):
     Xfrio, Xquente = Xs
     Tfrio, Tquente = Ts
@@ -162,6 +150,15 @@ tk.Button(frame_controles, text="Parar Simulação", command=lambda: globals().u
 frame_modelo = tk.LabelFrame(frame_direita, text="Modelo de Linguagem")
 frame_modelo.pack(padx=10, pady=10, fill="x")
 
+frame_historico = tk.Frame(frame_direita)
+frame_historico.pack(padx=10, pady=5, anchor="w")
+tk.Label(frame_historico, text="Histórico (n):").pack(side=tk.LEFT)
+
+
+historico_depth = tk.IntVar(value=3)
+
+tk.Spinbox(frame_historico, from_=0, to=10, textvariable=historico_depth, width=3).pack(side=tk.LEFT)
+
 btn_trocar_modelo = tk.Button(frame_modelo, text="Trocar Modelo", command=lambda: trocar_modelo())
 btn_trocar_modelo.pack(side=tk.LEFT)
 
@@ -260,22 +257,44 @@ def resetar_graficos():
     canvas.draw()
 
 
+import datetime
+
+log_path = "chat_log.txt"
 
 def salvar_log(pergunta, dados, resposta):
+    global log_counter
+    modelo_nome = modelos_disponiveis[modelo_atual_index[0]][0]
     with open(log_path, "a", encoding="utf-8") as f:
-        f.write("" + "="*60 + "")
-        f.write(f"{datetime.datetime.now()}")
-        f.write(f"Pergunta: {pergunta}")
-        f.write(f"Dados: {dados}")
-        f.write(f"Resposta: {resposta}")
-        f.write("="*60 + "")
+        f.write("\n" + "="*60 + "\n")
+        f.write(f"#{log_counter} - {datetime.datetime.now()}\n")
+        f.write(f"Modelo: {modelo_nome}\n")
+        f.write(f"Pergunta: {pergunta}\n")
+        f.write(f"Dados: {dados}\n")
+        f.write(f"Resposta: {resposta}\n")
+        f.write("="*60 + "\n")
+    log_counter += 1
+
+
+
+
+def recuperar_historico(n=None):
+    if n is None:
+        n = historico_depth.get()
+    if not os.path.exists(log_path):
+        return ""
+    with open(log_path, "r", encoding="utf-8") as f:
+        logs = f.read().split("=" * 60)
+        historico = logs[-n-1:-1] if len(logs) > n else logs
+        return "\n".join(historico).strip()
 
 def loop_ia():
     while True:
         pergunta, dados = fila_perguntas.get()
         modelo_fn = modelos_disponiveis[modelo_atual_index[0]][1]
         try:
-            resposta = modelo_fn(pergunta, dados)
+            contexto = recuperar_historico()
+            pergunta_com_contexto = f"Contexto da conversa:\n{contexto}\n\nNova pergunta:\n{pergunta}"
+            resposta = modelo_fn(pergunta_com_contexto, dados)
         except Exception as e:
             resposta = f"Ocorreu um erro: {e}"
         salvar_log(pergunta, dados, resposta)
@@ -283,6 +302,7 @@ def loop_ia():
             resposta_label.config(text=r)
         root.after(0, atualizar_resposta)
 
+        
 threading.Thread(target=loop_ia, daemon=True).start()
 root.mainloop()
 
