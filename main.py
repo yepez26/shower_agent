@@ -1,3 +1,5 @@
+# Versão modificada do tkinder_gpt_chuveiro_agents_v2.py com simulação duplicada (Chuveiro Real + Digital Twin)
+
 #%%
 
 import os
@@ -10,7 +12,17 @@ import queue
 import time
 import modelos_llm
 
+
 #%%
+
+
+import datetime
+
+
+path = r'C:\Users\Jesus Yepez Rojas\Documents\jesus\DIGITAL_TWINS\Tkinter_gpt\tkinder_gpt_chuveiro_agents_v2\logs\\'
+
+log_path = path+"chat_log.txt"
+
 
 plt.rcParams.update({'axes.titlesize': 8, 'xtick.labelsize': 7, 'ytick.labelsize': 7})
 
@@ -27,7 +39,7 @@ real_tempos, real_vazoes, real_temperaturas, real_iqb = [], [], [], []
 twin_tempos, twin_vazoes, twin_temperaturas, twin_iqb = [], [], [], []
 rodando = False
 
-
+#%%
 def modchuv(Xs=[0.5, 0.5], Ps=[2, 2], Ts=[20, 60]):
     Xfrio, Xquente = Xs
     Tfrio, Tquente = Ts
@@ -248,6 +260,16 @@ def resetar_graficos():
     canvas.draw()
 
 
+
+def salvar_log(pergunta, dados, resposta):
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write("" + "="*60 + "")
+        f.write(f"{datetime.datetime.now()}")
+        f.write(f"Pergunta: {pergunta}")
+        f.write(f"Dados: {dados}")
+        f.write(f"Resposta: {resposta}")
+        f.write("="*60 + "")
+
 def loop_ia():
     while True:
         pergunta, dados = fila_perguntas.get()
@@ -256,6 +278,7 @@ def loop_ia():
             resposta = modelo_fn(pergunta, dados)
         except Exception as e:
             resposta = f"Ocorreu um erro: {e}"
+        salvar_log(pergunta, dados, resposta)
         def atualizar_resposta(r=resposta):
             resposta_label.config(text=r)
         root.after(0, atualizar_resposta)
