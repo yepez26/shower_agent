@@ -12,6 +12,8 @@ import queue
 import time
 import modelos_llm
 
+#%%
+
 
 plt.rcParams.update({'axes.titlesize': 8, 'xtick.labelsize': 7, 'ytick.labelsize': 7})
 
@@ -24,6 +26,7 @@ modelos_disponiveis = [
 ]
 modelo_atual_index = [0]
 modelo_nome_label = None
+
 
 #%%
 
@@ -51,10 +54,12 @@ def modchuv(Xs=[0.5, 0.5], Ps=[2, 2], Ts=[20, 60]):
     return Fsaida, Tsaida
 
 
-def calcular_IQB(T_atual, F_atual, Tamb, F_des):
-    T_des = 40 - 0.5 * Tamb
-    IQB = 100 - 0.1 * (T_atual - T_des)**2 - 0.1*(F_atual - F_des)**2
+
+
+def calcular_IQB(T_atual, F_atual, T_des, F_des):
+    IQB = 100 - 0.1 * (T_atual - T_des)**2 - 0.1 * (F_atual - F_des)**2
     return max(0, min(100, IQB))
+
 
 # Interface gráfica
 
@@ -71,7 +76,11 @@ frame_esquerda.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 frame_direita = tk.Frame(frame_principal, width=400)
 frame_direita.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False)
 
-fig, axs = plt.subplots(3, 2, figsize=(10, 6))
+
+fig, axs = plt.subplots(3, 2, figsize=(10, 5.2))  # altura menor
+plt.subplots_adjust(hspace=0.6)  # mais espaço entre os gráficos
+
+
 canvas = FigureCanvasTkAgg(fig, master=frame_esquerda)
 canvas.get_tk_widget().pack(pady=10)
 
@@ -109,10 +118,40 @@ slider_T_des = tk.Scale(frame_sliders_linha2, from_=30, to=50, resolution=0.5, o
 slider_T_des.set(37.5)
 slider_T_des.pack(side=tk.LEFT, padx=10)
 
-slider_F_des = tk.Scale(frame_sliders_linha2, from_=1, to=10, resolution=0.5, orient=tk.HORIZONTAL, label='Vazão Desejada', length=200)
+slider_F_des = tk.Scale(frame_sliders_linha2, from_=1, to=50, resolution=1, orient=tk.HORIZONTAL, label='Vazão Desejada', length=200)
 slider_F_des.set(5)
 slider_F_des.pack(side=tk.LEFT, padx=10)
 
+#%% falhas
+
+# Variáveis de falhas (inicialmente desligadas)
+falhas = {
+    "valvula_fria_emperrada": False,
+    "falha_aquecedor": False,
+    "agua_fria_mais_fria": False,
+    "pouco_gas": False,
+    "falta_agua_fria": False,
+    "pouca_agua_fria": False
+}
+
+def aplicar_falhas(Xs, Ps, Ts):
+    if falhas["valvula_fria_emperrada"]:
+        Xs[0] = 0
+    if falhas["falha_aquecedor"]:
+        Ts[1] = Ts[0]
+    if falhas["agua_fria_mais_fria"]:
+        Ts[0] = min(Ts[0], 4.9)
+    if falhas["pouco_gas"]:
+        Ts[1] = min(Ts[1], 29.9)
+    if falhas["falta_agua_fria"]:
+        Ps[0] = 1
+    if falhas["pouca_agua_fria"]:
+        Ps[0] = min(Ps[0], 1.49)
+    return Xs, Ps, Ts
+
+
+
+#%%
 
 def atualizar_grafico():
     global rodando
@@ -125,8 +164,10 @@ def atualizar_grafico():
         T_des = slider_T_des.get()
         F_des = slider_F_des.get()
 
-        F_real, T_real = modchuv(Xs, Ts)
-        F_twin, T_twin = modchuv(Xs, Ts)
+        Xs_real, Ps_real, Ts_real = aplicar_falhas(Xs.copy(), [2, 2], Ts.copy())
+        F_real, T_real = modchuv(Xs_real, Ps_real, Ts_real)
+        
+        F_twin, T_twin = modchuv(Xs,[2,2], Ts)
 
         real_temperaturas.append(T_real)
         real_vazoes.append(F_real)
@@ -147,19 +188,19 @@ def atualizar_grafico():
         axs[2][1].clear()
 
         axs[0][0].plot(real_tempos, real_temperaturas, 'red')
-        axs[0][0].set_title("Temperatura Real")
+        axs[0][0].set_title("Temperatura Real",pad=10)
         axs[0][1].plot(twin_tempos, twin_temperaturas, 'orange')
-        axs[0][1].set_title("Temperatura Twin")
+        axs[0][1].set_title("Temperatura Twin",pad=10)
 
         axs[1][0].plot(real_tempos, real_vazoes, 'blue')
-        axs[1][0].set_title("Vazão Real")
+        axs[1][0].set_title("Vazão Real",pad=10)
         axs[1][1].plot(twin_tempos, twin_vazoes, 'green')
-        axs[1][1].set_title("Vazão Twin")
+        axs[1][1].set_title("Vazão Twin",pad=10)
 
         axs[2][0].plot(real_tempos, real_iqb, 'purple')
-        axs[2][0].set_title("IQB Real")
+        axs[2][0].set_title("IQB Real",pad=10)
         axs[2][1].plot(twin_tempos, twin_iqb, 'cyan')
-        axs[2][1].set_title("IQB Twin")
+        axs[2][1].set_title("IQB Twin",pad=10)
 
         canvas.draw()
         tempo += 1
@@ -170,6 +211,20 @@ btn_iniciar.pack(side=tk.LEFT, padx=5)
 
 btn_parar = tk.Button(frame_botoes, text="Parar Simulação", command=lambda: globals().update(rodando=False))
 btn_parar.pack(side=tk.LEFT, padx=5)
+
+def toggle_falha(falha):
+    falhas[falha] = not falhas[falha]
+
+for nome, label in [
+    ("valvula_fria_emperrada", "Valvula Fria Emperrada"),
+    ("falha_aquecedor", "Falha no Aquecedor"),
+    ("agua_fria_mais_fria", "Água Fria Muito Fria"),
+    ("pouco_gas", "Pouco Gás"),
+    ("falta_agua_fria", "Falta Água Fria"),
+    ("pouca_agua_fria", "Pouca Água Fria")
+]:
+    tk.Button(frame_botoes, text=label, command=lambda n=nome: toggle_falha(n)).pack(side=tk.LEFT, padx=2)
+
 
 frame_modelo = tk.Frame(frame_direita)
 frame_modelo.pack(padx=10, pady=5, anchor="w")
