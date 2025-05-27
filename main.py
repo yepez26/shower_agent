@@ -65,10 +65,26 @@ def calcular_IQB(T_atual, F_atual, T_des, F_des):
 
 root = tk.Tk()
 root.title("Chuveiro Interativo com IA + Digital Twin")
-root.geometry("1600x900")
+root.geometry("1400x700")
 
-frame_principal = tk.Frame(root)
-frame_principal.pack(fill=tk.BOTH, expand=True)
+# frame_principal = tk.Frame(root)
+# frame_principal.pack(fill=tk.BOTH, expand=True)
+
+# Criando canvas com scrollbar
+canvas_principal = tk.Canvas(root)
+canvas_principal.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+scrollbar_vertical = tk.Scrollbar(root, orient="vertical", command=canvas_principal.yview)
+scrollbar_vertical.pack(side=tk.RIGHT, fill=tk.Y)
+
+canvas_principal.configure(yscrollcommand=scrollbar_vertical.set)
+canvas_principal.bind('<Configure>', lambda e: canvas_principal.configure(scrollregion=canvas_principal.bbox("all")))
+
+# Frame que conterá todo o conteúdo
+frame_principal = tk.Frame(canvas_principal)
+canvas_principal.create_window((0, 0), window=frame_principal, anchor="nw")
+
+
 
 frame_topo = tk.Frame(frame_principal)
 frame_topo.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
